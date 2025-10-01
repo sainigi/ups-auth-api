@@ -1,0 +1,6 @@
+venv
+app/__main__.py
+app/__pycache__
+app/commons/__pycache__
+app/models/__pycache__
+app/services/__pycache__
