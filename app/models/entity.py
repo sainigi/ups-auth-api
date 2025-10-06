@@ -3,36 +3,69 @@ from pydantic import BaseModel,HttpUrl
 from uuid import UUID
 from typing import List
 
+class GetDashboardCardImageModel(BaseModel):
+    ID:int
+    DashboardCardId:UUID
+    CardImage: str = None 
+    ImageName: str
+    MimeType: str 
 
-#CREATE
-class DashboardCard(BaseModel):
-    CardId: UUID
+class GetDashboardCardModel(BaseModel):
+    ID: UUID
+    EntityId: UUID
+    AddressURL: str
+    ImgWidth: int = None
     Heading: str
-    Subheading: Optional[str] = None
-    AddressURL: Optional[str] = None
-    imgWidth: Optional[int] = None
-    LoginType: Optional[str] = None
-    IsNewTab: Optional[bool] = None
-    AppCategory: Optional[str] = None
-    ImageName: Optional[str] = None
-    CardImage: Optional[str] = None
-    MimeType: Optional[str] = None
-    Ordinal: Optional[int] = 0  
+    Subheading: str
+    Ordinal: int = None
+    LoginType: str
+    IsNewTab: bool
+    AppCategory: str
+    dashboardCardImage: Optional[GetDashboardCardImageModel]
 
-class Entity(BaseModel):
+
+class GetEntityModel(BaseModel):
+    ID: UUID
     Name: str
     Description: str
+    CreatedOn: str
+    CreatedBy: str
     IsActive: bool
     ModuleName: str
     ModuleDescription: str
-    DisplayOrder: Optional[int] = None
-    dashboard_card: Optional[DashboardCard] = None
-    ApplicablePrivileges: Optional[str] = None 
-    # ApplicablePrivileges will be hardcoded as RECD in  stored procedure
+    DisplayOrder: int
+    IsAutoAccept: bool
+    ApplicablePrivileges: str = None
+    card: Optional[GetDashboardCardModel]
+
+class CreateDashboardCardImageModel(BaseModel):
+    CardImage: str = None 
+    ImageName: str
+    MimeType: str 
+
+class CreateDashboardCardModel(BaseModel):
+    AddressURL: str
+    ImgWidth: int = None
+    Heading: str
+    Subheading: str
+    LoginType: str
+    IsNewTab: bool
+    AppCategory: str
+    dashboardCardImage: Optional[CreateDashboardCardImageModel]
+    
+class CreateEntityModel(BaseModel):
+    Name: str
+    Description: str
+    CreatedBy: str
+    ModuleName: str
+    ModuleDescription: str
+    ApplicablePrivileges: str = "RECD"
+    card: Optional[CreateDashboardCardModel]
+
 
 
 #READ
-class EntityResponse(Entity):
+class EntityResponse(GetEntityModel):
     EntityId: UUID
     CreatedBy: str
     CreatedOn: str
@@ -48,7 +81,7 @@ class UpdateEntityModel(BaseModel):
     ModuleName: Optional[str] = None
     ModuleDescription: Optional[str] = None
     DisplayOrder: Optional[int] = None
-    dashboard_card: Optional[DashboardCard] = None
+    dashboard_card: Optional[GetDashboardCardModel] = None
     ApplicablePrivileges: str = "RECD"
 
 #DELETE

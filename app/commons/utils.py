@@ -3,6 +3,7 @@ from dateutil import parser, tz
 from typing import Dict, List
 from uuid import UUID
 import pytz
+import base64
 
 def format_date(dt: str):
     try:
@@ -70,6 +71,9 @@ def get_execute_at(time_zone):
     next12_01am_in_utc = next12_01am_in_tz.astimezone(timezone.utc)
     # logger.debug(f"Next 12:01 a.m. in UTC : {next12_01am_in_utc.strftime('%m/%d/%Y %H:%M:%S %p')}")
     return next12_01am_in_utc.strftime('%m/%d/%Y %H:%M:%S %p')
+
+def get_varbinary_from_image_string(imagebase:str):
+    return base64.b64decode(imagebase)
 
 def get_device_type(lastOctet:str,brand:str):
     device_types=[

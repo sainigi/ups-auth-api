@@ -1,62 +1,24 @@
 from uuid import UUID
-from app.models.entity import Entity, UpdateEntityModel, DeleteEntity
-from app.commons.sp_helper import exec_stored_procedure
+from app.models.entity import GetEntityModel, UpdateEntityModel, GetDashboardCardModel,GetDashboardCardImageModel,CreateEntityModel
+from app.commons.sp_helper import exec_stored_procedure,exec_stored_procedure_multiple_sets
 import logging
 from typing import List,Optional
-from app.commons.db_helper import getCursor
+from datetime import datetime
+from app.commons.utils import stringify_dt,get_varbinary_from_image_string
+from fastapi.encoders import jsonable_encoder
 
 logger = logging.getLogger()
 #CREATE
-async def CreateEntityHelper(entity: Entity, CreatedBy: UUID):
+async def CreateEntityHelper(entity: CreateEntityModel, CreatedBy: UUID):
     try:
-        card_image_bytes: Optional[bytes] = None
-        # Prepare dashboard card values individually
-        if entity.dashboard_card:
-            dashboard_card_params = [
-                entity.dashboard_card.Heading,
-                entity.dashboard_card.Subheading or None,
-                entity.dashboard_card.AddressURL or None,
-                entity.dashboard_card.imgWidth or None,
-                entity.dashboard_card.LoginType or None,
-                entity.dashboard_card.IsNewTab if entity.dashboard_card.IsNewTab is not None else 0,
-                entity.dashboard_card.AppCategory or None,
-                entity.dashboard_card.ImageName or None,
-                card_image_bytes,
-                entity.dashboard_card.MimeType or None
-            ]
-        else:
-            dashboard_card_params = [None] * 9
-
-        await exec_stored_procedure(
-            sp_name="MKSIdentity.usp_Entity_Create",
-            param_names=[
-                "Name",
-                "Description",
-                "CreatedBy",
-                "ModuleName",
-                "ModuleDescription",
-                "ApplicablePrivileges",
-                "Heading",
-                "Subheading",
-                "AddressURL",
-                "ImgWidth",
-                "LoginType",
-                "IsNewTab",
-                "AppCategory",
-                "ImageName",
-                "CardImage",
-                "MimeType"
-            ],
-            param_values=[
-                entity.Name,
-                entity.Description,
-                str(CreatedBy),
-                entity.ModuleName,
-                entity.ModuleDescription,
-                entity.ApplicablePrivileges
-            ] + dashboard_card_params,
-            fetch_data=False
-        )
+        if entity.card.dashboardCardImage.CardImage:
+            CardImage = get_varbinary_from_image_string(entity.card.dashboardCardImage.CardImage)
+            
+        await exec_stored_procedure(sp_name="usp_Entity_Create",
+                                    param_names=[ "Name","Description","CreatedBy","ModuleName","ModuleDescription","ApplicablePrivileges","Heading","Subheading","AddressURL","ImgWidth","LoginType","IsNewTab","AppCategory","ImageName","CardImage","MimeType"],
+                                    param_values=[entity.Name,entity.Description,str(CreatedBy),entity.ModuleName,entity.ModuleDescription,entity.ApplicablePrivileges,entity.card.Heading,entity.card.Subheading,entity.card.AddressURL,entity.card.ImgWidth,entity.card.LoginType,entity.card.IsNewTab,entity.card.AppCategory,entity.card.dashboardCardImage.ImageName,CardImage,entity.card.dashboardCardImage.MimeType],
+                                    fetch_data=False
+                                    )
 
     except Exception as ex:
         logger.exception(f'Exception in CreateEntityHelper: {ex!r}')
@@ -66,33 +28,71 @@ async def CreateEntityHelper(entity: Entity, CreatedBy: UUID):
 # READ - Get All Entities
 async def GetEntitiesHelper():
     try:
-        cursor, conn = await getCursor()
+        entities,dashboardCards,dashboardCardImages = await exec_stored_procedure_multiple_sets(sp_name="usp_Entity_GetAll",param_names=[],param_values=[],fetch_data=True)
+        
+        entities_list = [
+            GetEntityModel(
+                ID=ent[0],
+                Name=ent[1],
+                Description=ent[2],
+                CreatedOn=stringify_dt(ent[3]),
+                CreatedBy=ent[4],
+                IsActive=ent[5],
+                ModuleName=ent[6],
+                ModuleDescription=ent[7],
+                DisplayOrder=ent[8],
+                IsAutoAccept=ent[9],
+                ApplicablePrivileges=ent[10],
+            ).dict()
+            for ent in entities
+        ]
 
-        # Call your stored procedure
-        cursor.execute("{CALL MKSIdentity.usp_Entity_GetAll}")
+        dashboardCards_list = [
+            GetDashboardCardModel(
+                ID=dc[0],
+                EntityId=dc[1],
+                AddressURL=dc[2],
+                ImgWidth=dc[3],
+                Heading=dc[4],
+                Subheading=dc[5],
+                Ordinal=dc[6],
+                LoginType=dc[7],
+                IsNewTab=dc[8],
+                AppCategory=dc[9],
+            ).dict()
+            for dc in dashboardCards
+        ]
 
-        # First result set → Entities
-        entities = cursor.fetchall()
-        columns_entities = [col[0] for col in cursor.description]
-
-        # Next result set → Cards
-        cursor.nextset()
-        cards = cursor.fetchall()
-        columns_cards = [col[0] for col in cursor.description]
-
-        # Next result set → Images
-        cursor.nextset()
-        images = cursor.fetchall()
-        columns_images = [col[0] for col in cursor.description]
-
-        conn.close()
-
-        return {
-            "entities": [dict(zip(columns_entities, row)) for row in entities],
-            "cards": [dict(zip(columns_cards, row)) for row in cards],
-            "images": [dict(zip(columns_images, row)) for row in images],
-        }
+        dashboardCardImages_list = [
+            GetDashboardCardImageModel(
+                ID=dci[0],
+                DashboardCardId=dci[1],
+                CardImage=dci[2],
+                ImageName=dci[3],
+                MimeType=dci[4],
+            ).dict()
+            for dci in dashboardCardImages
+        ]
+        
+        
+        dci_map = {dci["DashboardCardId"]: dci for dci in dashboardCardImages_list} 
+                    
+        for card in dashboardCards_list:
+            card["dashboardCardImage"] = dci_map.get(card["ID"], None)
+        
+        cards_by_entity = {}
+        for card in dashboardCards_list:
+            cards_by_entity.setdefault(card["EntityId"], []).append(card)
+                
+        for entity in entities_list:
+            entity["card"] = cards_by_entity.get(entity["ID"], [])     
+        
+        logger.debug(f'\n\n\nusp_Entity_GetAll==> Enitites : \n\n{entities_list} \n{type(entities_list)}')
+        
+        return jsonable_encoder(entities_list)   
+        
     except Exception as ex:
+        logger.exception(f'Exception in GetEntitiesHelper: {ex!r}')
         raise
 
 
@@ -131,7 +131,7 @@ async def UpdateEntityHelper(entity_id: UUID, entity: UpdateEntityModel, Modifie
                 "Heading": getattr(dc, "Heading", None),
                 "Subheading": getattr(dc, "Subheading", None),
                 "AddressURL": str(getattr(dc, "AddressURL", None)),
-                "ImgWidth": getattr(dc, "imgWidth", None),
+                "ImgWidth": getattr(dc, "ImgWidth", None),
                 "LoginType": getattr(dc, "LoginType", None),
                 "IsNewTab": getattr(dc, "IsNewTab", False),
                 "AppCategory": getattr(dc, "AppCategory", None),

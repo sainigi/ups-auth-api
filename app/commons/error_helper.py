@@ -52,7 +52,7 @@ def GetJSONResponse(status_code, ex):
         status_code = int(status_code)
         if status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
             ex = http.client.responses[status_code]
-        error_msg = errorMsg(Error=str(status_code), Message=http.client.responses[status_code], Detail=str(ex))
+        error_msg = errorMsg(Error=status_code, Message=http.client.responses[status_code], Detail=str(ex))
         return JSONResponse(status_code=status_code, content=error_msg.dict())
     except:
         raise

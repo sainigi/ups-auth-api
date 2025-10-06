@@ -18,5 +18,3 @@ def getCursorSync():
         return cursor, conn
     except:
         raise
-
-
