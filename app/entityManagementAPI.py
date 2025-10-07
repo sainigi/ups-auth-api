@@ -1,15 +1,12 @@
 import logging
 import pyodbc
-from typing import Dict, List
 from uuid import UUID
 from fastapi import status, Depends, APIRouter, Query
 from fastapi.responses import JSONResponse
-from datetime import datetime
-from fastapi.encoders import jsonable_encoder
 from fastapi.security.api_key import APIKey
 
 from app.models.common import Status
-from app.models.entity import CreateEntityModel,UpdateEntityModel
+from app.models.entity import CreateEntityModel,GetUpdateEntityModel
 from app.services.entityManagementService import (
     CreateEntityHelper, GetEntitiesHelper, 
     UpdateEntityHelper, DeleteEntitiesHelper
@@ -75,7 +72,7 @@ async def GetEntities(Authorization: APIKey = Depends(auth.get_api_key)):
 # Update - Update entity by ID from query string
 # ---------------------
 @router.put('/UpdateEntity', responses=responses("422", "500"))
-async def UpdateEntity(entity_id: UUID = Query(..., description="ID of the entity to update"), body: UpdateEntityModel = None, Authorization: APIKey = Depends(auth.get_api_key)):
+async def UpdateEntity(entity_id: UUID = Query(..., description="ID of the entity to update"), body: GetUpdateEntityModel = None, Authorization: APIKey = Depends(auth.get_api_key)):
     try:
         logger.debug(f'Authorization of CreateEntity: {Authorization}')
         logger.debug(f'Update-Entity Request ID: {entity_id}, Body: {body.dict() if body else "{}"}')

@@ -3,14 +3,14 @@ from pydantic import BaseModel,HttpUrl
 from uuid import UUID
 from typing import List
 
-class GetDashboardCardImageModel(BaseModel):
+class GetUpdateDashboardCardImageModel(BaseModel):
     ID:int
     DashboardCardId:UUID
     CardImage: str = None 
     ImageName: str
     MimeType: str 
 
-class GetDashboardCardModel(BaseModel):
+class GetUpdateDashboardCardModel(BaseModel):
     ID: UUID
     EntityId: UUID
     AddressURL: str
@@ -21,10 +21,10 @@ class GetDashboardCardModel(BaseModel):
     LoginType: str
     IsNewTab: bool
     AppCategory: str
-    dashboardCardImage: Optional[GetDashboardCardImageModel]
+    dashboardCardImage: Optional[GetUpdateDashboardCardImageModel]
 
 
-class GetEntityModel(BaseModel):
+class GetUpdateEntityModel(BaseModel):
     ID: UUID
     Name: str
     Description: str
@@ -36,7 +36,7 @@ class GetEntityModel(BaseModel):
     DisplayOrder: int
     IsAutoAccept: bool
     ApplicablePrivileges: str = None
-    card: Optional[GetDashboardCardModel]
+    card: Optional[List[GetUpdateDashboardCardModel]]
 
 class CreateDashboardCardImageModel(BaseModel):
     CardImage: str = None 
@@ -62,30 +62,5 @@ class CreateEntityModel(BaseModel):
     ApplicablePrivileges: str = "RECD"
     card: Optional[CreateDashboardCardModel]
 
-
-
-#READ
-class EntityResponse(GetEntityModel):
-    EntityId: UUID
-    CreatedBy: str
-    CreatedOn: str
-    ModifiedBy: Optional[str] = None
-    ModifiedOn: Optional[str] = None
-    ApplicablePrivileges: str = "RECD"
-
-#UPDATE
-class UpdateEntityModel(BaseModel):
-    Name: Optional[str] = None
-    Description: Optional[str] = None
-    IsActive: Optional[bool] = None
-    ModuleName: Optional[str] = None
-    ModuleDescription: Optional[str] = None
-    DisplayOrder: Optional[int] = None
-    dashboard_card: Optional[GetDashboardCardModel] = None
-    ApplicablePrivileges: str = "RECD"
-
-#DELETE
-class DeleteEntity(BaseModel):
-    pass  # No fields,will get ID from query string
 
     

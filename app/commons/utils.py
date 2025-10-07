@@ -72,8 +72,11 @@ def get_execute_at(time_zone):
     # logger.debug(f"Next 12:01 a.m. in UTC : {next12_01am_in_utc.strftime('%m/%d/%Y %H:%M:%S %p')}")
     return next12_01am_in_utc.strftime('%m/%d/%Y %H:%M:%S %p')
 
-def get_varbinary_from_image_string(imagebase:str):
+def decode_image_string_to_varbinary(imagebase:str):
     return base64.b64decode(imagebase)
+
+def encode_image_string_to_varbinary(imagebase):
+    return base64.b64encode(imagebase).decode('utf-8')
 
 def get_device_type(lastOctet:str,brand:str):
     device_types=[
