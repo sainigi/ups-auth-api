@@ -2,7 +2,8 @@ from uuid import UUID
 from app.models.entity import GetUpdateEntityModel, GetUpdateDashboardCardModel, GetUpdateDashboardCardImageModel, CreateEntityModel
 from app.commons.sp_helper import exec_stored_procedure,exec_stored_procedure_multiple_sets
 import logging
-from app.commons.utils import stringify_dt,decode_image_string_to_varbinary,encode_image_string_to_varbinary
+import base64
+from app.commons.utils import stringify_dt
 from fastapi.encoders import jsonable_encoder
 
 logger = logging.getLogger()
@@ -10,12 +11,20 @@ logger = logging.getLogger()
 #CREATE
 async def CreateEntityHelper(entity: CreateEntityModel, CreatedBy: UUID):
     try:
-        if entity.card.dashboardCardImage.CardImage:
-            CardImage = decode_image_string_to_varbinary(entity.card.dashboardCardImage.CardImage)
+        file_binary = None
+        image_name = None
+        mime_type = None
+        if entity.card and entity.card.dashboardCardImage:
+            card_image = entity.card.dashboardCardImage
+            if card_image.CardImage:
+                file_binary = base64.b64decode(card_image.CardImage)
+                image_name = card_image.ImageName
+                mime_type = card_image.MimeType
+    
             
-        await exec_stored_procedure(sp_name="usp_Entity_Create",
-                                    param_names=[ "Name","Description","CreatedBy","ModuleName","ModuleDescription","ApplicablePrivileges","Heading","Subheading","AddressURL","ImgWidth","LoginType","IsNewTab","AppCategory","ImageName","CardImage","MimeType"],
-                                    param_values=[entity.Name,entity.Description,str(CreatedBy),entity.ModuleName,entity.ModuleDescription,entity.ApplicablePrivileges,entity.card.Heading,entity.card.Subheading,entity.card.AddressURL,entity.card.ImgWidth,entity.card.LoginType,entity.card.IsNewTab,entity.card.AppCategory,entity.card.dashboardCardImage.ImageName,CardImage,entity.card.dashboardCardImage.MimeType],
+        await exec_stored_procedure(sp_name="[MKSIdentity].[usp_Entity_Create]",
+                                    param_names=[ "Name","Description","CreatedBy","ModuleName","IsActive","DisplayOrder","ModuleDescription","ApplicablePrivileges","Heading","Subheading","AddressURL","ImgWidth","LoginType","IsNewTab","AppCategory","ImageName","CardImage","MimeType"],
+                                    param_values=[entity.Name,entity.Description,str(CreatedBy),entity.ModuleName,entity.IsActive,entity.DisplayOrder,entity.ModuleDescription,entity.ApplicablePrivileges,entity.card.Heading,entity.card.Subheading,entity.card.AddressURL,entity.card.ImgWidth,entity.card.LoginType,entity.card.IsNewTab,entity.card.AppCategory,image_name,file_binary,mime_type],
                                     fetch_data=False
                                     )
 
@@ -27,7 +36,7 @@ async def CreateEntityHelper(entity: CreateEntityModel, CreatedBy: UUID):
 # READ - Get All Entities
 async def GetEntitiesHelper():
     try:
-        entities,dashboardCards,dashboardCardImages = await exec_stored_procedure_multiple_sets(sp_name="usp_Entity_GetAll",param_names=[],param_values=[],fetch_data=True)
+        entities,dashboardCards,dashboardCardImages = await exec_stored_procedure_multiple_sets(sp_name="[MKSIdentity].[usp_Entity_GetAll]",param_names=[],param_values=[],fetch_data=True)
         
         entities_list = [
             GetUpdateEntityModel(
@@ -66,7 +75,7 @@ async def GetEntitiesHelper():
             GetUpdateDashboardCardImageModel(
                 ID=dci[0],
                 DashboardCardId=dci[1],
-                CardImage=encode_image_string_to_varbinary(dci[2]) if dci[2] else None,
+                CardImage=base64.b64encode((dci[2])).decode('utf-8') if dci[2] else None,
                 ImageName=dci[3],
                 MimeType=dci[4],
             ).dict()
@@ -77,14 +86,14 @@ async def GetEntitiesHelper():
         dci_map = {dci["DashboardCardId"]: dci for dci in dashboardCardImages_list} 
                     
         for card in dashboardCards_list:
-            card["dashboardCardImage"] = dci_map.get(card["ID"], None)
+            card["dashboardCardImage"] = dci_map.get(card["ID"])
         
         cards_by_entity = {}
         for card in dashboardCards_list:
-            cards_by_entity.setdefault(card["EntityId"], []).append(card)
+            cards_by_entity[card["EntityId"]] = card
                 
         for entity in entities_list:
-            entity["card"] = cards_by_entity.get(entity["ID"], [])     
+            entity["card"] = cards_by_entity.get(entity["ID"], {})     
         
         logger.debug(f'\n\n\nusp_Entity_GetAll==> Enitites : \n\n{entities_list} \n{type(entities_list)}')
         
@@ -101,12 +110,23 @@ async def UpdateEntityHelper(entity_id: UUID, entity: GetUpdateEntityModel, Modi
     Updates an entity. Dashboard card fields are optional.
     """
     try:
-        card_data = []
+        file_binary = None
+        image_name = None
+        mime_type = None
+        if entity.card and entity.card.dashboardCardImage:
+            card_image = entity.card.dashboardCardImage
+            if card_image.CardImage is not None:
+                file_binary = base64.b64decode(card_image.CardImage)
+                image_name = card_image.ImageName
+                mime_type = card_image.MimeType
+            else:
+                file_binary = b''
+        print(' \n\n\nfile_binary: \n\n\n', file_binary, type(file_binary))
+        print("\n\n\n entity: \n\n\n",entity)
         # Call the stored procedure
-        await exec_stored_procedure(sp_name="usp_Entity_Update",
-                                    param_names=["EntityId", "Name", "Description","IsActive", "ModuleName", "ModuleDescription",
-                                                 "DisplayOrder","IsAutoAccept","ApplicablePrivileges","card"],
-                                    param_values=[entity_id,entity.Name,entity.Description,entity.IsActive,entity.ModuleName,entity.ModuleDescription,entity.DisplayOrder,entity.IsAutoAccept,entity.ApplicablePrivileges,],
+        await exec_stored_procedure(sp_name="[MKSIdentity].[usp_Entity_Update]",
+                                    param_names=[ "EnitityId","Name","Description","CreatedBy","ModuleName","ModuleDescription","IsActive","DisplayOrder","CardId","AddressURL","ImgWidth","Heading","Subheading","LoginType","IsNewTab","AppCategory","Ordinal","CardImageId","CardImage","ImageName","MimeType"],
+                                    param_values=[entity_id,entity.Name,entity.Description,entity.CreatedBy,entity.ModuleName,entity.ModuleDescription,entity.IsActive,entity.DisplayOrder,entity.card.ID,entity.card.AddressURL,entity.card.ImgWidth,entity.card.Heading,entity.card.Subheading,entity.card.LoginType,entity.card.IsNewTab,entity.card.AppCategory,entity.card.Ordinal,entity.card.dashboardCardImage.ID,file_binary,image_name,mime_type],
                                     fetch_data=False
                                     )
     except Exception as ex:
@@ -119,7 +139,7 @@ async def UpdateEntityHelper(entity_id: UUID, entity: GetUpdateEntityModel, Modi
 async def DeleteEntitiesHelper(entity_id: UUID, DeletedBy: UUID):
     try:
         await exec_stored_procedure(
-            sp_name="MKSIdentity.usp_Entity_Delete",
+            sp_name="[MKSIdentity].[usp_Entity_Delete]",
             param_names=["EntityId", "DeletedBy"],
             param_values=[str(entity_id), str(DeletedBy)],
             fetch_data=False

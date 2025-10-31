@@ -6,7 +6,7 @@ logger = logging.getLogger()
 
 async def exec_stored_procedure(sp_name: str, param_names: List, param_values: List, fetch_data: bool= True):
     try:
-        stored_proc = f"EXEC [{sp_name}] {', '.join([f'@{name} = ?' for name in param_names])}"
+        stored_proc = f"EXEC {sp_name} {', '.join([f'@{name} = ?' for name in param_names])}"
         params = tuple(param_values)
         cursor, conn = await getCursor()
         cursor.execute(stored_proc, params)
@@ -22,7 +22,7 @@ async def exec_stored_procedure(sp_name: str, param_names: List, param_values: L
         raise
 def exec_stored_procedure_sync(sp_name: str, param_names: List, param_values: List, fetch_data: bool= True):
     try:
-        stored_proc = f"EXEC [{sp_name}] {', '.join([f'@{name} = ?' for name in param_names])}"
+        stored_proc = f"EXEC {sp_name} {', '.join([f'@{name} = ?' for name in param_names])}"
         params = tuple(param_values)
         cursor, conn = getCursorSync()
         cursor.execute(stored_proc, params)
@@ -39,7 +39,7 @@ def exec_stored_procedure_sync(sp_name: str, param_names: List, param_values: Li
     
 async def exec_stored_procedure_multiple_sets(sp_name: str, param_names: List, param_values: List, fetch_data: bool= True):
     try:
-        stored_proc = f"EXEC [{sp_name}] {', '.join([f'@{name} = ?' for name in param_names])}"
+        stored_proc = f"EXEC {sp_name} {', '.join([f'@{name} = ?' for name in param_names])}"
         params = tuple(param_values)
         cursor, conn = await getCursor()
         cursor.execute(stored_proc, params)
